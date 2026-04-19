@@ -1,5 +1,71 @@
+# Site Settings
 title: Portainer MCP Safe
 description: Altered-source Portainer MCP fork with safe-mode redaction and Docker MCP Toolkit packaging
-theme: minima
-markdown: kramdown
+url: "https://malaccamaxgit.github.io"
+baseurl: "/portainer-mcp-safe"
 repository: Malaccamaxgit/portainer-mcp-safe
+
+# Theme
+remote_theme: just-the-docs/just-the-docs@v0.10.0
+
+# Plugins
+plugins:
+  - jekyll-sitemap
+  - jekyll-seo-tag
+  - jekyll-remote-theme
+
+# Navigation
+aux_links:
+  "GitHub":
+    - "https://github.com/Malaccamaxgit/portainer-mcp-safe"
+aux_links_new_tab: true
+
+# Search
+search_enabled: true
+search_tokenizer_separator: /[\s/]+/
+
+# Footer
+footer_content: "Portainer MCP Safe — <a href=\"https://github.com/Malaccamaxgit/portainer-mcp-safe\">View on GitHub</a>. Built with <a href=\"https://just-the-docs.com\">Just the Docs</a>."
+
+# Back to top
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Callouts
+callouts_level: quiet
+callouts:
+  highlight:
+    color: yellow
+  important:
+    title: Important
+    color: blue
+  new:
+    title: New
+    color: green
+  note:
+    title: Note
+    color: purple
+  warning:
+    title: Warning
+    color: red
+
+# Exclude from Jekyll processing
+exclude:
+  - node_modules/
+  - src/
+  - test/
+  - ".git/"
+  - "*.lock"
+  - docker-compose.yml
+  - Dockerfile
+  - "*.sh"
+  - ".env*"
+  - portainer-mcp-gateway.yaml
+  - README.md
+  - NOTICE
+  - LICENSE
+  - package.json
+  - package-lock.json
+  - tsconfig.json
+  - ".cursor/"
+  - vendor/
