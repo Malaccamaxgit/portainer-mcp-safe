@@ -35,12 +35,13 @@ jobs:
       # Integration tests skipped - requires Docker daemon not available on default runners
       # - name: "Run integration tests"
       #   run: make test-integration
-      - name: "check test coverage"
-        uses: vladopajic/go-test-coverage@v2
-        with:
-          profile: coverage.out
-          git-token: ${{ github.ref_name == 'main' && secrets.GITHUB_TOKEN || '' }}
-          git-branch: badges
+      # Badge generation disabled - requires separate badges branch
+      # - name: "check test coverage"
+      #   uses: vladopajic/go-test-coverage@v2
+      #   with:
+      #     profile: coverage.out
+      #     git-token: ${{ github.ref_name == 'main' && secrets.GITHUB_TOKEN || '' }}
+      #     git-branch: badges
       - name: "Archive code coverage results"
         uses: actions/upload-artifact@v4
         with:
