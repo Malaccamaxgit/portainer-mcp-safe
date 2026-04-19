@@ -32,8 +32,15 @@ It is currently designed to work with a Portainer administrator API token.
 
 ## Fork Status
 
-This repository is the safe fork used for AI-driven Portainer access. It keeps
-the upstream Portainer MCP tool surface, but adds:
+This repository is maintained by [Benjamin Alloul](https://github.com/Malaccamaxgit).
+It is a reworked fork of the upstream Portainer MCP project, adapted to:
+- redact sensitive fields in stack output
+- work within Docker MCP Toolkit through the Docker MCP Gateway
+
+The original upstream source is: <https://github.com/portainer/portainer-mcp>
+
+This fork keeps the upstream Portainer MCP tool surface and implementation model,
+then adds AI-safety controls for stack output redaction and proxy restrictions.
 
 - safe-mode redaction for secret-like stack environment values and compose content
 - Docker proxy allowlisting by default
