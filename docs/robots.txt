@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://malaccamaxgit.github.io/portainer-mcp-safe/sitemap.xml

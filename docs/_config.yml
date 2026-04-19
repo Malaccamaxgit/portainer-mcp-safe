@@ -69,3 +69,9 @@ exclude:
   - tsconfig.json
   - ".cursor/"
   - vendor/
+
+# Include static files for SEO
+include:
+  - googlebff89d051a4afbcb.html
+  - sitemap.xml
+  - robots.txt
