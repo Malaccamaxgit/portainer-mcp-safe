@@ -54,6 +54,12 @@ Gateway-visible config defaults in this fork:
 - proxy_allowlist: empty
 - extra_redaction_patterns: empty
 
+`PORTAINER_READ_ONLY` and `PORTAINER_DISABLE_VERSION_CHECK` are supported by the
+entrypoint, but they are not exposed as Toolkit config properties in
+`portainer-mcp-gateway.yaml`. Set them as container environment variables
+directly, or add `--read-only` / `--disable-version-check` in the gateway
+command arguments when you need those behaviors.
+
 When `business_edition` is left off, the running server hides the 18
 Business Edition-only tools and exposes the 21-tool Community Edition subset to
 the MCP client. Enable it to restore the full 39-tool Portainer surface.

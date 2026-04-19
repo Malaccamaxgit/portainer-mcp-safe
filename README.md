@@ -148,6 +148,22 @@ Docker MCP Toolkit-specific usage lives in `docker/USAGE.txt`.
 
 # Usage
 
+## CLI Reference
+
+```text
+-server <url>                              Required. Portainer server URL.
+-token <token>                             Required. Portainer API token.
+-tools <path>                              Optional. Path to tools.yaml (default: tools.yaml).
+-read-only                                 Optional. Register only read-only tools.
+-business-edition                          Optional. Register Business Edition-only tools.
+-disable-version-check                     Optional. Skip Portainer version validation.
+-safe-mode=true                            Optional. Enable redaction and proxy safety guards.
+-allow-unredacted-stack-content=false      Optional. Allow raw stack env values and compose content in safe mode.
+-allow-sensitive-proxy-paths=false         Optional. Allow sensitive Docker and Kubernetes proxy paths in safe mode.
+-proxy-allowlist <entries>                 Optional. Extra METHOD:/path-prefix entries, comma-separated.
+-extra-redaction-patterns <patterns>       Optional. Extra redaction regex patterns, comma-separated.
+```
+
 With Claude Desktop, configure it like so:
 
 ```
@@ -262,7 +278,7 @@ To enable read-only mode, add the `-read-only` flag to your command arguments:
 ```
 
 When using read-only mode:
-- Only read tools (list, get) will be available to the AI model
+- Only read-only registrations are loaded (no create, update, or delete tools)
 - All write tools (create, update, delete) are not loaded
 - The Docker and Kubernetes proxy tools are available but restricted to GET requests only
 
@@ -308,6 +324,28 @@ correct subset to the MCP client.
 The `updateUserRole` tool remains available in both modes. On Community
 Edition, Portainer may still reject the `edge_admin` role at call time.
 
+## Safe Mode
+
+Safe mode is enabled by default in this fork. It redacts secret-like values in
+stack content and applies safety guards to Docker and Kubernetes proxy access.
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `-safe-mode` | `true` | Enable redaction and proxy safety guards |
+| `-allow-unredacted-stack-content` | `false` | Allow raw stack env values and compose content in safe mode |
+| `-allow-sensitive-proxy-paths` | `false` | Allow sensitive Docker and Kubernetes proxy paths in safe mode |
+| `-proxy-allowlist` | `""` | Add METHOD:/path-prefix allowlist entries, comma-separated |
+| `-extra-redaction-patterns` | `""` | Add extra regex patterns for secret-like key names |
+
+When safe mode is enabled:
+- Stack and local stack output can be redacted when environment values look secret-like
+- Docker proxy requests are restricted to safe paths unless explicitly allowed
+- Kubernetes proxy requests block sensitive secret paths unless explicitly allowed
+- Kubernetes JSON responses can have secret-like fields redacted
+
+Use the override flags sparingly. They are intended for trusted local workflows
+where the default safety layer is too restrictive.
+
 # Portainer Version Support
 
 This tool is pinned to support a specific version of Portainer. The application will validate the Portainer server version at startup and fail if it doesn't match the required version.
@@ -336,57 +374,57 @@ The following table lists the currently (latest version) supported operations th
 > [!NOTE]
 > **Community vs Business Edition**: `internal/tooldef/tools.yaml` still defines the full tool surface, but the server now hides the 18 Business Edition-only tools by default unless `-business-edition` is enabled.
 
-| Resource | Operation | Description | Supported In Version |
-|----------|-----------|-------------|----------------------|
-| **Environments** | | | |
-| | ListEnvironments | List all available environments | 0.1.0 |
-| | UpdateEnvironmentTags | Update tags associated with an environment | 0.1.0 |
-| | UpdateEnvironmentUserAccesses | Update user access policies for an environment | 0.1.0 |
-| | UpdateEnvironmentTeamAccesses | Update team access policies for an environment | 0.1.0 |
-| **Environment Groups (Edge Groups)** | | | |
-| | ListEnvironmentGroups | List all available environment groups | 0.1.0 |
-| | CreateEnvironmentGroup | Create a new environment group | 0.1.0 |
-| | UpdateEnvironmentGroupName | Update the name of an environment group | 0.1.0 |
-| | UpdateEnvironmentGroupEnvironments | Update environments associated with a group | 0.1.0 |
-| | UpdateEnvironmentGroupTags | Update tags associated with a group | 0.1.0 |
-| **Access Groups (Endpoint Groups)** | | | |
-| | ListAccessGroups | List all available access groups | 0.1.0 |
-| | CreateAccessGroup | Create a new access group | 0.1.0 |
-| | UpdateAccessGroupName | Update the name of an access group | 0.1.0 |
-| | UpdateAccessGroupUserAccesses | Update user accesses for an access group | 0.1.0 |
-| | UpdateAccessGroupTeamAccesses | Update team accesses for an access group | 0.1.0 |
-| | AddEnvironmentToAccessGroup | Add an environment to an access group | 0.1.0 |
-| | RemoveEnvironmentFromAccessGroup | Remove an environment from an access group | 0.1.0 |
-| **Stacks (Edge Stacks)** | | | |
-| | ListStacks | List all available stacks | 0.1.0 |
-| | GetStackFile | Get the compose file for a specific stack | 0.1.0 |
-| | CreateStack | Create a new Docker stack | 0.1.0 |
-| | UpdateStack | Update an existing Docker stack | 0.1.0 |
-| **Tags** | | | |
-| | ListEnvironmentTags | List all available environment tags | 0.1.0 |
-| | CreateEnvironmentTag | Create a new environment tag | 0.1.0 |
-| **Teams** | | | |
-| | ListTeams | List all available teams | 0.1.0 |
-| | CreateTeam | Create a new team | 0.1.0 |
-| | UpdateTeamName | Update the name of a team | 0.1.0 |
-| | UpdateTeamMembers | Update the members of a team | 0.1.0 |
-| **Users** | | | |
-| | ListUsers | List all available users | 0.1.0 |
-| | UpdateUser | Update an existing user | 0.1.0 |
-| | GetSettings | Get the settings of the Portainer instance | 0.1.0 |
-| **Docker** | | | |
-| | DockerProxy | Proxy ANY Docker API requests (GET only in read-only mode) | 0.2.0 |
-| **Kubernetes** | | | |
-| | KubernetesProxy | Proxy ANY Kubernetes API requests (GET only in read-only mode) | 0.3.0 |
-| | getKubernetesResourceStripped | Proxy GET Kubernetes API requests and automatically strip verbose metadata fields | 0.6.0 |
-| **Local Stacks (Standalone Docker Compose)** | | | |
-| | ListLocalStacks | List all local (non-edge) stacks deployed on environments | 0.7.0 |
-| | GetLocalStackFile | Get the docker-compose file content for a local stack | 0.7.0 |
-| | CreateLocalStack | Create a new local standalone Docker Compose stack | 0.7.0 |
-| | UpdateLocalStack | Update an existing local stack with new compose file | 0.7.0 |
-| | StartLocalStack | Start a stopped local stack | 0.7.0 |
-| | StopLocalStack | Stop a running local stack | 0.7.0 |
-| | DeleteLocalStack | Delete a local stack permanently | 0.7.0 |
+| Resource | Operation | Description | Edition | Supported In Version |
+|----------|-----------|-------------|---------|----------------------|
+| **Environments** | | | | |
+| | ListEnvironments | List all available environments | CE | 0.1.0 |
+| | UpdateEnvironmentTags | Update tags associated with an environment | CE | 0.1.0 |
+| | UpdateEnvironmentUserAccesses | Update user access policies for an environment | EE | 0.1.0 |
+| | UpdateEnvironmentTeamAccesses | Update team access policies for an environment | EE | 0.1.0 |
+| **Environment Groups (Edge Groups)** | | | | |
+| | ListEnvironmentGroups | List all available environment groups | EE | 0.1.0 |
+| | CreateEnvironmentGroup | Create a new environment group | EE | 0.1.0 |
+| | UpdateEnvironmentGroupName | Update the name of an environment group | EE | 0.1.0 |
+| | UpdateEnvironmentGroupEnvironments | Update environments associated with a group | EE | 0.1.0 |
+| | UpdateEnvironmentGroupTags | Update tags associated with a group | EE | 0.1.0 |
+| **Access Groups (Endpoint Groups)** | | | | |
+| | ListAccessGroups | List all available access groups | EE | 0.1.0 |
+| | CreateAccessGroup | Create a new access group | EE | 0.1.0 |
+| | UpdateAccessGroupName | Update the name of an access group | EE | 0.1.0 |
+| | UpdateAccessGroupUserAccesses | Update user accesses for an access group | EE | 0.1.0 |
+| | UpdateAccessGroupTeamAccesses | Update team accesses for an access group | EE | 0.1.0 |
+| | AddEnvironmentToAccessGroup | Add an environment to an access group | EE | 0.1.0 |
+| | RemoveEnvironmentFromAccessGroup | Remove an environment from an access group | EE | 0.1.0 |
+| **Stacks (Edge Stacks)** | | | | |
+| | ListStacks | List all available stacks | EE | 0.1.0 |
+| | GetStackFile | Get the compose file for a specific stack | EE | 0.1.0 |
+| | CreateStack | Create a new Docker stack | EE | 0.1.0 |
+| | UpdateStack | Update an existing Docker stack | EE | 0.1.0 |
+| **Tags** | | | | |
+| | ListEnvironmentTags | List all available environment tags | CE | 0.1.0 |
+| | CreateEnvironmentTag | Create a new environment tag | CE | 0.1.0 |
+| **Teams** | | | | |
+| | ListTeams | List all available teams | CE | 0.1.0 |
+| | CreateTeam | Create a new team | CE | 0.1.0 |
+| | UpdateTeamName | Update the name of a team | CE | 0.1.0 |
+| | UpdateTeamMembers | Update the members of a team | CE | 0.1.0 |
+| **Users** | | | | |
+| | ListUsers | List all available users | CE | 0.1.0 |
+| | UpdateUser | Update an existing user | CE | 0.1.0 |
+| | GetSettings | Get the settings of the Portainer instance | CE | 0.1.0 |
+| **Docker** | | | | |
+| | DockerProxy | Proxy ANY Docker API requests (GET only in read-only mode) | CE | 0.2.0 |
+| **Kubernetes** | | | | |
+| | KubernetesProxy | Proxy ANY Kubernetes API requests (GET only in read-only mode) | CE | 0.3.0 |
+| | getKubernetesResourceStripped | Proxy GET Kubernetes API requests and automatically strip verbose metadata fields | CE | 0.6.0 |
+| **Local Stacks (Standalone Docker Compose)** | | | | |
+| | ListLocalStacks | List all local (non-edge) stacks deployed on environments | CE | 0.7.0 |
+| | GetLocalStackFile | Get the docker-compose file content for a local stack | CE | 0.7.0 |
+| | CreateLocalStack | Create a new local standalone Docker Compose stack | CE | 0.7.0 |
+| | UpdateLocalStack | Update an existing local stack with new compose file | CE | 0.7.0 |
+| | StartLocalStack | Start a stopped local stack | CE | 0.7.0 |
+| | StopLocalStack | Stop a running local stack | CE | 0.7.0 |
+| | DeleteLocalStack | Delete a local stack permanently | CE | 0.7.0 |
 
 # Development
 

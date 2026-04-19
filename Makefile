@@ -8,7 +8,7 @@ BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 
 LDFLAGS_STRING = -s -w -X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildDate=${BUILD_DATE}
 
-.PHONY: clean pre build run test test-integration test-all lint regen-gateway-tools
+.PHONY: clean pre build test test-integration test-all lint regen-gateway-tools
 
 clean:
 	rm -rf dist

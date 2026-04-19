@@ -25,6 +25,7 @@ temp/
 .idea/
 .cursor/
 .claude/
+CLAUDE.md
 *.swp
 *.swo
 *~

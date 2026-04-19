@@ -24,6 +24,11 @@ dist/portainer-mcp \
   -read-only                  # Optional: restrict to read-only tools
   -business-edition           # Optional: enable Business Edition-only tools
   -disable-version-check      # Optional: skip Portainer version validation
+  -safe-mode=true                     # Enable safe-mode redaction and proxy guards (default: true)
+  -allow-unredacted-stack-content=false  # Allow unredacted stack env values in safe mode
+  -allow-sensitive-proxy-paths=false  # Allow sensitive Docker/K8s proxy paths in safe mode
+  -proxy-allowlist ""                 # Extra METHOD:/path-prefix entries, comma-separated
+  -extra-redaction-patterns ""        # Extra redaction regex patterns, comma-separated
 ```
 
 ## Code Style Guidelines
@@ -114,7 +119,7 @@ import (
 
 ### Server Configuration
 - Server is initialized in `cmd/portainer-mcp/mcp.go`
-- Uses functional options pattern via `WithClient()`, `WithReadOnly()`, `WithBusinessEdition()`, and `WithDisableVersionCheck()`
+- Uses functional options pattern via `WithClient()`, `WithReadOnly()`, `WithBusinessEdition()`, `WithDisableVersionCheck()`, `WithSafeMode()`, `WithAllowUnredactedStackContent()`, `WithAllowSensitiveProxyPaths()`, `WithProxyAllowlist()`, and `WithExtraRedactionPatterns()`
 - Connects to Portainer API using token-based authentication
 - Validates compatibility with specific Portainer version
 - Loads tool definitions from YAML file
