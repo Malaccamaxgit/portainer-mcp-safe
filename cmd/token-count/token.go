@@ -29,7 +29,7 @@ func main() {
 		log.Fatal().Msg("Output path is mandatory. Please specify using -output flag.")
 	}
 
-	tools, err := toolgen.LoadToolsFromYAML(*inputYamlPath, "1.0")
+	tools, _, err := toolgen.LoadToolsFromYAML(*inputYamlPath, "1.0")
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load tools")
 	}

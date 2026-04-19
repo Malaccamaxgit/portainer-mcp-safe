@@ -3,8 +3,10 @@ package mcp
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/toolgen"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/assert"
@@ -121,6 +123,7 @@ func TestNewPortainerMCPServer(t *testing.T) {
 				assert.NotNil(t, server.srv)
 				assert.NotNil(t, server.cli)
 				assert.NotNil(t, server.tools)
+				assert.NotNil(t, server.toolDefinitions)
 			}
 
 			// Verify that all expected methods were called
@@ -131,10 +134,12 @@ func TestNewPortainerMCPServer(t *testing.T) {
 
 func TestAddToolIfExists(t *testing.T) {
 	tests := []struct {
-		name     string
-		tools    map[string]mcp.Tool
-		toolName string
-		exists   bool
+		name               string
+		tools              map[string]mcp.Tool
+		toolDefinitions    map[string]toolgen.ToolDefinition
+		toolName           string
+		businessEdition    bool
+		wantRegisteredTool bool
 	}{
 		{
 			name: "existing tool",
@@ -147,8 +152,13 @@ func TestAddToolIfExists(t *testing.T) {
 					},
 				},
 			},
-			toolName: "test_tool",
-			exists:   true,
+			toolDefinitions: map[string]toolgen.ToolDefinition{
+				"test_tool": {
+					Name: "test_tool",
+				},
+			},
+			toolName:           "test_tool",
+			wantRegisteredTool: true,
 		},
 		{
 			name: "non-existing tool",
@@ -161,8 +171,51 @@ func TestAddToolIfExists(t *testing.T) {
 					},
 				},
 			},
-			toolName: "nonexistent_tool",
-			exists:   false,
+			toolDefinitions:    map[string]toolgen.ToolDefinition{},
+			toolName:           "nonexistent_tool",
+			wantRegisteredTool: false,
+		},
+		{
+			name: "business edition tool skipped in community mode",
+			tools: map[string]mcp.Tool{
+				"test_tool": {
+					Name:        "test_tool",
+					Description: "Test tool description",
+					InputSchema: mcp.ToolInputSchema{
+						Properties: map[string]any{},
+					},
+				},
+			},
+			toolDefinitions: map[string]toolgen.ToolDefinition{
+				"test_tool": {
+					Name:                    "test_tool",
+					RequiresBusinessEdition: true,
+				},
+			},
+			toolName:           "test_tool",
+			businessEdition:    false,
+			wantRegisteredTool: false,
+		},
+		{
+			name: "business edition tool registered when enabled",
+			tools: map[string]mcp.Tool{
+				"test_tool": {
+					Name:        "test_tool",
+					Description: "Test tool description",
+					InputSchema: mcp.ToolInputSchema{
+						Properties: map[string]any{},
+					},
+				},
+			},
+			toolDefinitions: map[string]toolgen.ToolDefinition{
+				"test_tool": {
+					Name:                    "test_tool",
+					RequiresBusinessEdition: true,
+				},
+			},
+			toolName:           "test_tool",
+			businessEdition:    true,
+			wantRegisteredTool: true,
 		},
 	}
 
@@ -176,8 +229,10 @@ func TestAddToolIfExists(t *testing.T) {
 				server.WithLogging(),
 			)
 			server := &PortainerMCPServer{
-				tools: tt.tools,
-				srv:   mcpServer,
+				tools:           tt.tools,
+				toolDefinitions: tt.toolDefinitions,
+				srv:             mcpServer,
+				businessEdition: tt.businessEdition,
 			}
 
 			// Create a handler function
@@ -189,8 +244,81 @@ func TestAddToolIfExists(t *testing.T) {
 			server.addToolIfExists(tt.toolName, handler)
 
 			// Verify if the tool exists in the tools map
-			_, toolExists := server.tools[tt.toolName]
-			assert.Equal(t, tt.exists, toolExists)
+			_, toolRegistered := server.registeredTools[tt.toolName]
+			assert.Equal(t, tt.wantRegisteredTool, toolRegistered)
 		})
 	}
+}
+
+func TestEditionAwareToolRegistrationCounts(t *testing.T) {
+	tests := []struct {
+		name               string
+		options            []ServerOption
+		wantRegisteredTool int
+		wantPresent        []string
+		wantAbsent         []string
+	}{
+		{
+			name:               "community edition registers ce subset",
+			options:            []ServerOption{WithDisableVersionCheck(true)},
+			wantRegisteredTool: 21,
+			wantPresent:        []string{ToolListLocalStacks, ToolListEnvironments, ToolDockerProxy},
+			wantAbsent:         []string{ToolListStacks, ToolListAccessGroups, ToolListEnvironmentGroups},
+		},
+		{
+			name:               "business edition registers all tools",
+			options:            []ServerOption{WithDisableVersionCheck(true), WithBusinessEdition(true)},
+			wantRegisteredTool: 39,
+			wantPresent:        []string{ToolListLocalStacks, ToolListStacks, ToolListAccessGroups, ToolListEnvironmentGroups},
+		},
+		{
+			name:               "community edition read only registers intersection",
+			options:            []ServerOption{WithDisableVersionCheck(true), WithReadOnly(true)},
+			wantRegisteredTool: 10,
+			wantPresent:        []string{ToolListLocalStacks, ToolGetLocalStackFile, ToolDockerProxy},
+			wantAbsent:         []string{ToolCreateLocalStack, ToolListStacks, ToolListAccessGroups},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := new(MockPortainerClient)
+			options := append([]ServerOption{WithClient(mockClient)}, tt.options...)
+			server, err := NewPortainerMCPServer(
+				"https://portainer.example.com",
+				"valid-token",
+				filepath.Join("..", "tooldef", "tools.yaml"),
+				options...,
+			)
+			require.NoError(t, err)
+
+			registerAllFeatures(server)
+
+			require.Len(t, server.registeredTools, tt.wantRegisteredTool)
+			for _, toolName := range tt.wantPresent {
+				_, exists := server.registeredTools[toolName]
+				assert.True(t, exists, "expected tool %s to be registered", toolName)
+			}
+			for _, toolName := range tt.wantAbsent {
+				_, exists := server.registeredTools[toolName]
+				assert.False(t, exists, "expected tool %s to be skipped", toolName)
+			}
+
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func registerAllFeatures(server *PortainerMCPServer) {
+	server.AddEnvironmentFeatures()
+	server.AddEnvironmentGroupFeatures()
+	server.AddTagFeatures()
+	server.AddStackFeatures()
+	server.AddLocalStackFeatures()
+	server.AddSettingsFeatures()
+	server.AddUserFeatures()
+	server.AddTeamFeatures()
+	server.AddAccessGroupFeatures()
+	server.AddDockerProxyFeatures()
+	server.AddKubernetesProxyFeatures()
 }

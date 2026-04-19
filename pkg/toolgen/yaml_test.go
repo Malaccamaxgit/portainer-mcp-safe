@@ -211,7 +211,7 @@ tools:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tools, err := LoadToolsFromYAML(tt.filePath, tt.minimumVersion)
+			tools, definitions, err := LoadToolsFromYAML(tt.filePath, tt.minimumVersion)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadToolsFromYAML() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -237,10 +237,44 @@ tools:
 					if tool.Annotations.Title == "" { // Check a field within Annotations
 						t.Errorf("Tool %s seems to be missing processed annotations", tt.wantTool)
 					}
+					definition, exists := definitions[tt.wantTool]
+					if !exists {
+						t.Errorf("Expected tool definition '%s' not found in loaded definitions: %v", tt.wantTool, definitions)
+						return
+					}
+					if definition.Name != tt.wantTool {
+						t.Errorf("Tool definition name mismatch, got %s, want %s", definition.Name, tt.wantTool)
+					}
 				}
 			}
 		})
 	}
+}
+
+func TestLoadToolsFromYAMLPreservesRequiresBusinessEdition(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "business_edition.yaml")
+	content := `version: "v1.3"
+tools:
+  - name: businessTool
+    description: A business edition tool
+    requiresBusinessEdition: true
+    annotations:
+      title: Business Tool
+      readOnlyHint: true
+      destructiveHint: false
+      idempotentHint: true
+      openWorldHint: false`
+
+	err := os.WriteFile(path, []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create business edition YAML file: %v", err)
+	}
+
+	tools, definitions, err := LoadToolsFromYAML(path, "v1.0.0")
+	assert.NoError(t, err)
+	assert.Contains(t, tools, "businessTool")
+	assert.True(t, definitions["businessTool"].RequiresBusinessEdition)
 }
 
 // Helper function to create an invalid YAML file for testing
@@ -460,8 +494,10 @@ func TestConvertToolDefinitions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := convertToolDefinitions(tt.defs)
+			got, definitions, err := convertToolDefinitions(tt.defs)
+			assert.NoError(t, err)
 			assert.Len(t, got, tt.want)
+			assert.Len(t, definitions, tt.want)
 
 			// Verify each tool expected to be converted exists and is valid
 			for _, def := range tt.defs {
@@ -476,6 +512,12 @@ func TestConvertToolDefinitions(t *testing.T) {
 					assert.Equal(t, def.Name, tool.Name)
 					assert.Equal(t, def.Description, tool.Description)
 					assert.NotEmpty(t, tool.Annotations.Title) // Basic check that title is populated
+				}
+
+				definition, exists := definitions[def.Name]
+				assert.True(t, exists, "Tool definition %s not found in result", def.Name)
+				if exists {
+					assert.Equal(t, def, definition)
 				}
 			}
 		})

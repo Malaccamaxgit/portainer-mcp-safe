@@ -38,6 +38,7 @@ the upstream Portainer MCP tool surface, but adds:
 - safe-mode redaction for secret-like stack environment values and compose content
 - Docker proxy allowlisting by default
 - Kubernetes secret-path blocking and secret-like JSON field redaction by default
+- edition-aware tool registration for Portainer Community Edition vs Business Edition
 
 Repository layout:
 
@@ -265,6 +266,48 @@ When using read-only mode:
 - All write tools (create, update, delete) are not loaded
 - The Docker and Kubernetes proxy tools are available but restricted to GET requests only
 
+## Business Edition Mode
+
+By default, the server starts in Community Edition mode. In that mode it hides
+the tools that depend on Portainer Business Edition APIs so MCP clients do not
+see tools that would fail at runtime on CE.
+
+To enable the Business Edition tool set, add the `-business-edition` flag to
+your command arguments:
+
+```
+{
+    "mcpServers": {
+        "portainer": {
+            "command": "/path/to/portainer-mcp",
+            "args": [
+                "-server",
+                "[IP]:[PORT]",
+                "-token",
+                "[TOKEN]",
+                "-business-edition"
+            ]
+        }
+    }
+}
+```
+
+When `-business-edition` is not set:
+- Edge Stack tools are hidden
+- Environment Group tools are hidden
+- Access Group tools are hidden
+- Environment user/team access policy tools are hidden
+
+When `-business-edition` is set:
+- The full 39-tool Portainer surface is registered
+
+This flag only affects MCP tool registration. The Docker MCP Toolkit catalog can
+still advertise the full static tool list, but the running server exposes the
+correct subset to the MCP client.
+
+The `updateUserRole` tool remains available in both modes. On Community
+Edition, Portainer may still reject the `edge_admin` role at call time.
+
 # Portainer Version Support
 
 This tool is pinned to support a specific version of Portainer. The application will validate the Portainer server version at startup and fail if it doesn't match the required version.
@@ -289,6 +332,9 @@ The following table lists the currently (latest version) supported operations th
 
 > [!NOTE]
 > **Edge Stacks vs Local Stacks**: The original Portainer MCP only supports Edge Stacks (distributed via Edge Groups). Local Stack tools add support for regular standalone Docker Compose stacks deployed directly on environments — the most common stack type in non-Edge setups. Local Stack tools use raw HTTP requests to the Portainer REST API since the official SDK (`client-api-go`) does not expose regular stack endpoints.
+
+> [!NOTE]
+> **Community vs Business Edition**: `internal/tooldef/tools.yaml` still defines the full tool surface, but the server now hides the 18 Business Edition-only tools by default unless `-business-edition` is enabled.
 
 | Resource | Operation | Description | Supported In Version |
 |----------|-----------|-------------|----------------------|

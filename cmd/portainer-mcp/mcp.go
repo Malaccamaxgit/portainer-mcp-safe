@@ -32,6 +32,7 @@ func main() {
 	tokenFlag := flag.String("token", "", "The authentication token for the Portainer server")
 	toolsFlag := flag.String("tools", "", "The path to the tools YAML file")
 	readOnlyFlag := flag.Bool("read-only", false, "Run in read-only mode")
+	businessEditionFlag := flag.Bool("business-edition", false, "Enable Portainer Business Edition tool registration")
 	disableVersionCheckFlag := flag.Bool("disable-version-check", false, "Disable Portainer server version check")
 	safeModeFlag := flag.Bool("safe-mode", true, "Enable safe-mode redaction and proxy guards")
 	allowUnredactedStackContentFlag := flag.Bool("allow-unredacted-stack-content", false, "Allow unredacted stack environment values and compose content in safe mode")
@@ -67,6 +68,7 @@ func main() {
 		Str("portainer-host", *serverFlag).
 		Str("tools-path", toolsPath).
 		Bool("read-only", *readOnlyFlag).
+		Bool("business-edition", *businessEditionFlag).
 		Bool("disable-version-check", *disableVersionCheckFlag).
 		Bool("safe-mode", *safeModeFlag).
 		Bool("allow-unredacted-stack-content", *allowUnredactedStackContentFlag).
@@ -80,6 +82,7 @@ func main() {
 		*tokenFlag,
 		toolsPath,
 		mcp.WithReadOnly(*readOnlyFlag),
+		mcp.WithBusinessEdition(*businessEditionFlag),
 		mcp.WithDisableVersionCheck(*disableVersionCheckFlag),
 		mcp.WithSafeMode(*safeModeFlag),
 		mcp.WithAllowUnredactedStackContent(*allowUnredactedStackContentFlag),

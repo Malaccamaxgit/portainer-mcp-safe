@@ -1,11 +1,12 @@
 ---
-version: v1.2
+version: v1.3
 tools:
   ## Access Groups
   ## An access group is the equivalent of an Endpoint Group in Portainer.
   ## ------------------------------------------------------------
   - name: listAccessGroups
     description: List all available access groups
+    requiresBusinessEdition: true
     annotations:
       title: List Access Groups
       readOnlyHint: true
@@ -16,6 +17,7 @@ tools:
     description: Create a new access group. Use access groups when you want to define
       accesses on more than one environment. Otherwise, define the accesses on
       the environment level.
+    requiresBusinessEdition: true
     parameters:
       - name: name
         description: The name of the access group
@@ -37,6 +39,7 @@ tools:
       openWorldHint: false
   - name: updateAccessGroupName
     description: Update the name of an existing access group.
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the access group to update
@@ -54,6 +57,7 @@ tools:
       openWorldHint: false
   - name: updateAccessGroupUserAccesses
     description: Update the user accesses of an existing access group.
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the access group to update
@@ -90,6 +94,7 @@ tools:
       openWorldHint: false
   - name: updateAccessGroupTeamAccesses
     description: Update the team accesses of an existing access group.
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the access group to update
@@ -126,6 +131,7 @@ tools:
       openWorldHint: false
   - name: addEnvironmentToAccessGroup
     description: Add an environment to an access group.
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the access group to update
@@ -143,6 +149,7 @@ tools:
       openWorldHint: false
   - name: removeEnvironmentFromAccessGroup
     description: Remove an environment from an access group.
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the access group to update
@@ -193,6 +200,7 @@ tools:
       openWorldHint: false
   - name: updateEnvironmentUserAccesses
     description: Update the user access policies of an environment
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the environment to update
@@ -230,6 +238,7 @@ tools:
       openWorldHint: false
   - name: updateEnvironmentTeamAccesses
     description: Update the team access policies of an environment
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the environment to update
@@ -270,6 +279,7 @@ tools:
   ## ------------------------------------------------------------
   - name: createEnvironmentGroup
     description: Create a new environment group. Environment groups are the equivalent of Edge Groups in Portainer.
+    requiresBusinessEdition: true
     parameters:
       - name: name
         description: The name of the environment group
@@ -289,6 +299,7 @@ tools:
       openWorldHint: false
   - name: listEnvironmentGroups
     description: List all available environment groups. Environment groups are the equivalent of Edge Groups in Portainer.
+    requiresBusinessEdition: true
     annotations:
       title: List Environment Groups
       readOnlyHint: true
@@ -297,6 +308,7 @@ tools:
       openWorldHint: false
   - name: updateEnvironmentGroupName
     description: Update the name of an environment group. Environment groups are the equivalent of Edge Groups in Portainer.
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the environment group to update
@@ -314,6 +326,7 @@ tools:
       openWorldHint: false
   - name: updateEnvironmentGroupEnvironments
     description: Update the environments associated with an environment group. Environment groups are the equivalent of Edge Groups in Portainer.
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the environment group to update
@@ -337,6 +350,7 @@ tools:
       openWorldHint: false
   - name: updateEnvironmentGroupTags
     description: Update the tags associated with an environment group. Environment groups are the equivalent of Edge Groups in Portainer.
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the environment group to update
@@ -372,6 +386,7 @@ tools:
   ## ------------------------------------------------------------
   - name: listStacks
     description: List all available stacks
+    requiresBusinessEdition: true
     annotations:
       title: List Stacks
       readOnlyHint: true
@@ -383,6 +398,7 @@ tools:
       Get the compose file for a specific stack ID. In safe_mode, secret-like
       environment values and secrets blocks are redacted unless
       allow_unredacted_stack_content is enabled.
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the stack to get the compose file for
@@ -396,6 +412,7 @@ tools:
       openWorldHint: false
   - name: createStack
     description: Create a new stack
+    requiresBusinessEdition: true
     parameters:
       - name: name
         description: Name of the stack. Stack name must only consist of lowercase alpha
@@ -426,6 +443,7 @@ tools:
       openWorldHint: false
   - name: updateStack
     description: Update an existing stack
+    requiresBusinessEdition: true
     parameters:
       - name: id
         description: The ID of the stack to update

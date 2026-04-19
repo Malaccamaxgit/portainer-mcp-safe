@@ -4,6 +4,7 @@ set -eu
 portainer_server_url="${PORTAINER_SERVER_URL:-}"
 portainer_api_token="${PORTAINER_API_TOKEN:-}"
 portainer_read_only="${PORTAINER_READ_ONLY:-false}"
+portainer_business_edition="${PORTAINER_BUSINESS_EDITION:-false}"
 portainer_disable_version_check="${PORTAINER_DISABLE_VERSION_CHECK:-false}"
 portainer_safe_mode="${PORTAINER_SAFE_MODE:-true}"
 portainer_allow_unredacted_stack_content="${PORTAINER_ALLOW_UNREDACTED_STACK_CONTENT:-false}"
@@ -33,6 +34,12 @@ while [ "$#" -gt 0 ]; do
     --read-only)
       if [ -n "$2" ]; then
         portainer_read_only="$2"
+      fi
+      shift 2
+      ;;
+    --business-edition)
+      if [ -n "$2" ]; then
+        portainer_business_edition="$2"
       fi
       shift 2
       ;;
@@ -82,6 +89,9 @@ done
 if is_template_placeholder "$portainer_read_only"; then
   portainer_read_only="false"
 fi
+if is_template_placeholder "$portainer_business_edition"; then
+  portainer_business_edition="false"
+fi
 if is_template_placeholder "$portainer_disable_version_check"; then
   portainer_disable_version_check="false"
 fi
@@ -129,6 +139,7 @@ set -- \
   /usr/local/bin/portainer-mcp \
   -server "$portainer_server_url" \
   -token "$portainer_api_token" \
+  -business-edition="$portainer_business_edition" \
   -safe-mode="$portainer_safe_mode" \
   -allow-unredacted-stack-content="$portainer_allow_unredacted_stack_content" \
   -allow-sensitive-proxy-paths="$portainer_allow_sensitive_proxy_paths" \

@@ -18,10 +18,11 @@ type ToolsConfig struct {
 
 // ToolDefinition represents a single tool in the YAML config
 type ToolDefinition struct {
-	Name        string                `yaml:"name"`
-	Description string                `yaml:"description"`
-	Parameters  []ParameterDefinition `yaml:"parameters"`
-	Annotations Annotations           `yaml:"annotations"`
+	Name                    string                `yaml:"name"`
+	Description             string                `yaml:"description"`
+	RequiresBusinessEdition bool                  `yaml:"requiresBusinessEdition,omitempty"`
+	Parameters              []ParameterDefinition `yaml:"parameters"`
+	Annotations             Annotations           `yaml:"annotations"`
 }
 
 // ParameterDefinition represents a tool parameter in the YAML config
@@ -45,35 +46,36 @@ type Annotations struct {
 
 // LoadToolsFromYAML loads tool definitions from a YAML file
 // It returns the tools and the version of the tools.yaml file
-func LoadToolsFromYAML(filePath string, minimumVersion string) (map[string]mcp.Tool, error) {
+func LoadToolsFromYAML(filePath string, minimumVersion string) (map[string]mcp.Tool, map[string]ToolDefinition, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var config ToolsConfig
 	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if config.Version == "" {
-		return nil, fmt.Errorf("missing version in tools.yaml")
+		return nil, nil, fmt.Errorf("missing version in tools.yaml")
 	}
 
 	if !semver.IsValid(config.Version) {
-		return nil, fmt.Errorf("invalid version in tools.yaml: %s", config.Version)
+		return nil, nil, fmt.Errorf("invalid version in tools.yaml: %s", config.Version)
 	}
 
 	if semver.Compare(config.Version, minimumVersion) < 0 {
-		return nil, fmt.Errorf("tools.yaml version %s is below the minimum required version %s", config.Version, minimumVersion)
+		return nil, nil, fmt.Errorf("tools.yaml version %s is below the minimum required version %s", config.Version, minimumVersion)
 	}
 
-	return convertToolDefinitions(config.Tools), nil
+	return convertToolDefinitions(config.Tools)
 }
 
 // convertToolDefinitions converts YAML tool definitions to mcp.Tool objects
-func convertToolDefinitions(defs []ToolDefinition) map[string]mcp.Tool {
+func convertToolDefinitions(defs []ToolDefinition) (map[string]mcp.Tool, map[string]ToolDefinition, error) {
 	tools := make(map[string]mcp.Tool, len(defs))
+	definitions := make(map[string]ToolDefinition, len(defs))
 
 	for _, def := range defs {
 		tool, err := convertToolDefinition(def)
@@ -83,9 +85,10 @@ func convertToolDefinitions(defs []ToolDefinition) map[string]mcp.Tool {
 		}
 
 		tools[def.Name] = tool
+		definitions[def.Name] = def
 	}
 
-	return tools
+	return tools, definitions, nil
 }
 
 // convertToolDefinition converts a single YAML tool definition to an mcp.Tool

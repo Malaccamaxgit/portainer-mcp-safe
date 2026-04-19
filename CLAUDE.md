@@ -22,6 +22,7 @@ dist/portainer-mcp \
   -token <api-token> \        # Required: Portainer API token
   -tools <path>               # Optional: path to tools.yaml (default: tools.yaml)
   -read-only                  # Optional: restrict to read-only tools
+  -business-edition           # Optional: enable Business Edition-only tools
   -disable-version-check      # Optional: skip Portainer version validation
 ```
 
@@ -113,7 +114,7 @@ import (
 
 ### Server Configuration
 - Server is initialized in `cmd/portainer-mcp/mcp.go`
-- Uses functional options pattern via `WithClient()`, `WithReadOnly()`, and `WithDisableVersionCheck()`
+- Uses functional options pattern via `WithClient()`, `WithReadOnly()`, `WithBusinessEdition()`, and `WithDisableVersionCheck()`
 - Connects to Portainer API using token-based authentication
 - Validates compatibility with specific Portainer version
 - Loads tool definitions from YAML file
@@ -124,10 +125,15 @@ import (
 - External file can override embedded definitions
 - Version checking ensures compatibility
 - Read-only mode restricts modification capabilities
+- `requiresBusinessEdition: true` marks tools that are only registered when `-business-edition` is enabled
 
 ### Feature Domains
 The server registers these feature groups (see `cmd/portainer-mcp/mcp.go`):
 Environment, EnvironmentGroup, Tag, Stack, LocalStack, Settings, User, Team, AccessGroup, DockerProxy, KubernetesProxy
+
+In Community Edition mode, the server skips the Business Edition-only tools in
+EnvironmentGroup, AccessGroup, Edge Stack, and environment RBAC flows. That
+leaves 21 registered tools by default, or 10 when combined with read-only mode.
 
 ### Handler Pattern
 - Each tool has a corresponding handler in `internal/mcp/`

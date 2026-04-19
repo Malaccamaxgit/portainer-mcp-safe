@@ -48,10 +48,15 @@ the known-good URL in the YAML.
 Gateway-visible config defaults in this fork:
 
 - safe_mode: true
+- business_edition: false
 - allow_unredacted_stack_content: false
 - allow_sensitive_proxy_paths: false
 - proxy_allowlist: empty
 - extra_redaction_patterns: empty
+
+When `business_edition` is left off, the running server hides the 18
+Business Edition-only tools and exposes the 21-tool Community Edition subset to
+the MCP client. Enable it to restore the full 39-tool Portainer surface.
 
 Do not keep both `portainer-mcp` and `portainer-mcp-safe` active in the same
 profile when reconnecting Cursor. They expose the same tool names, and the

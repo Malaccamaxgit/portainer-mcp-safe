@@ -22,6 +22,10 @@ config:
         type: boolean
         description: Enable redaction and proxy safety controls
         default: true
+      business_edition:
+        type: boolean
+        description: Enable Portainer Business Edition (EE) tools. Leave off for Community Edition.
+        default: false
       allow_unredacted_stack_content:
         type: boolean
         description: Allow raw stack env values and compose content
@@ -43,6 +47,8 @@ env:
     value: /tmp/portainer-tools.yaml
   - name: PORTAINER_SAFE_MODE
     value: '{{portainer-mcp-safe.safe_mode}}'
+  - name: PORTAINER_BUSINESS_EDITION
+    value: '{{portainer-mcp-safe.business_edition}}'
   - name: PORTAINER_ALLOW_UNREDACTED_STACK_CONTENT
     value: '{{portainer-mcp-safe.allow_unredacted_stack_content}}'
   - name: PORTAINER_ALLOW_SENSITIVE_PROXY_PATHS

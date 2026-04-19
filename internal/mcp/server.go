@@ -101,11 +101,14 @@ type PortainerClient interface {
 // PortainerMCPServer is the main server that handles MCP protocol communication
 // with AI assistants and translates them into Portainer API calls.
 type PortainerMCPServer struct {
-	srv      *server.MCPServer
-	cli      PortainerClient
-	tools    map[string]mcp.Tool
-	readOnly bool
-	policy   *safety.Policy
+	srv             *server.MCPServer
+	cli             PortainerClient
+	tools           map[string]mcp.Tool
+	toolDefinitions map[string]toolgen.ToolDefinition
+	registeredTools map[string]struct{}
+	readOnly        bool
+	businessEdition bool
+	policy          *safety.Policy
 }
 
 // ServerOption is a function that configures the server
@@ -115,6 +118,7 @@ type ServerOption func(*serverOptions)
 type serverOptions struct {
 	client              PortainerClient
 	readOnly            bool
+	businessEdition     bool
 	disableVersionCheck bool
 	safetyConfig        safety.Config
 }
@@ -132,6 +136,12 @@ func WithClient(client PortainerClient) ServerOption {
 func WithReadOnly(readOnly bool) ServerOption {
 	return func(opts *serverOptions) {
 		opts.readOnly = readOnly
+	}
+}
+
+func WithBusinessEdition(enabled bool) ServerOption {
+	return func(opts *serverOptions) {
+		opts.businessEdition = enabled
 	}
 }
 
@@ -203,7 +213,7 @@ func NewPortainerMCPServer(serverURL, token, toolsPath string, options ...Server
 		option(opts)
 	}
 
-	tools, err := toolgen.LoadToolsFromYAML(toolsPath, MinimumToolsVersion)
+	tools, toolDefinitions, err := toolgen.LoadToolsFromYAML(toolsPath, MinimumToolsVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load tools: %w", err)
 	}
@@ -238,10 +248,13 @@ func NewPortainerMCPServer(serverURL, token, toolsPath string, options ...Server
 			server.WithToolCapabilities(true),
 			server.WithLogging(),
 		),
-		cli:      portainerClient,
-		tools:    tools,
-		readOnly: opts.readOnly,
-		policy:   policy,
+		cli:             portainerClient,
+		tools:           tools,
+		toolDefinitions: toolDefinitions,
+		registeredTools: make(map[string]struct{}),
+		readOnly:        opts.readOnly,
+		businessEdition: opts.businessEdition,
+		policy:          policy,
 	}, nil
 }
 
@@ -253,11 +266,23 @@ func (s *PortainerMCPServer) Start() error {
 
 // addToolIfExists adds a tool to the server if it exists in the tools map
 func (s *PortainerMCPServer) addToolIfExists(toolName string, handler server.ToolHandlerFunc) {
-	if tool, exists := s.tools[toolName]; exists {
-		s.srv.AddTool(tool, handler)
-	} else {
+	tool, exists := s.tools[toolName]
+	if !exists {
 		log.Printf("Tool %s not found, will not be registered for MCP usage", toolName)
+		return
 	}
+
+	toolDefinition, exists := s.toolDefinitions[toolName]
+	if exists && toolDefinition.RequiresBusinessEdition && !s.businessEdition {
+		log.Printf("Tool %s requires Portainer Business Edition and will not be registered", toolName)
+		return
+	}
+
+	s.srv.AddTool(tool, handler)
+	if s.registeredTools == nil {
+		s.registeredTools = make(map[string]struct{})
+	}
+	s.registeredTools[toolName] = struct{}{}
 }
 
 func (s *PortainerMCPServer) safetyPolicy() *safety.Policy {
