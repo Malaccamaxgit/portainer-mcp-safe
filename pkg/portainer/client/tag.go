@@ -3,7 +3,7 @@ package client
 import (
 	"fmt"
 
-	"github.com/portainer/portainer-mcp/pkg/portainer/models"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models"
 )
 
 // GetEnvironmentTags retrieves all environment tags from the Portainer server.

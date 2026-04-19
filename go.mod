@@ -1,4 +1,4 @@
-module github.com/portainer/portainer-mcp
+module github.com/Malaccamaxgit/portainer-mcp-safe
 
 go 1.24.2
 

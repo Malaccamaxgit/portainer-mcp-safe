@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/internal/mcp"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/tests/integration/containers"
 	mcpmodels "github.com/mark3labs/mcp-go/mcp"
-	"github.com/portainer/portainer-mcp/internal/mcp"
-	"github.com/portainer/portainer-mcp/tests/integration/containers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

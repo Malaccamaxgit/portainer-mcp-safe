@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/toolgen"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/portainer/portainer-mcp/pkg/toolgen"
 )
 
 func (s *PortainerMCPServer) AddEnvironmentFeatures() {

@@ -2,13 +2,12 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/toolgen"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/portainer/portainer-mcp/pkg/portainer/models"
-	"github.com/portainer/portainer-mcp/pkg/toolgen"
 )
 
 // AddLocalStackFeatures registers the local (non-edge) stack tools with the MCP server.
@@ -32,12 +31,13 @@ func (s *PortainerMCPServer) HandleGetLocalStacks() server.ToolHandlerFunc {
 			return mcp.NewToolResultErrorFromErr("failed to get local stacks", err), nil
 		}
 
-		data, err := json.Marshal(stacks)
+		stacks, note := s.safetyPolicy().SanitizeLocalStacks(stacks)
+		result, err := s.newJSONResult(stacks, note)
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("failed to marshal local stacks", err), nil
 		}
 
-		return mcp.NewToolResultText(string(data)), nil
+		return result, nil
 	}
 }
 
@@ -55,7 +55,12 @@ func (s *PortainerMCPServer) HandleGetLocalStackFile() server.ToolHandlerFunc {
 			return mcp.NewToolResultErrorFromErr("failed to get local stack file", err), nil
 		}
 
-		return mcp.NewToolResultText(stackFile), nil
+		stackFile, note, err := s.safetyPolicy().SanitizeComposeContent(stackFile)
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("failed to sanitize local stack file in safe mode", err), nil
+		}
+
+		return s.newTextResult(stackFile, stackFile, note), nil
 	}
 }
 

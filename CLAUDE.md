@@ -99,7 +99,7 @@ The `PortainerClient` in `pkg/portainer/client/client.go` holds two internal cli
 ### Import Conventions
 ```go
 import (
-    "github.com/portainer/portainer-mcp/pkg/portainer/models" // Default: models (Local MCP Models)
+    "github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models" // Default: models (Local MCP Models)
     apimodels "github.com/portainer/client-api-go/v2/pkg/models" // Alias: apimodels (Raw Client-API-Go Models)
 )
 ```

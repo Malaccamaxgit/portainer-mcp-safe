@@ -3,8 +3,8 @@ package models
 import (
 	"time"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/utils"
 	apimodels "github.com/portainer/client-api-go/v2/pkg/models"
-	"github.com/portainer/portainer-mcp/pkg/portainer/utils"
 )
 
 type Stack struct {
@@ -71,14 +71,14 @@ type LocalStackEnvVar struct {
 
 // LocalStack represents a regular (non-edge) Docker Compose or Swarm stack in Portainer
 type LocalStack struct {
-	ID            int              `json:"id"`
-	Name          string           `json:"name"`
-	Type          string           `json:"type"`
-	Status        string           `json:"status"`
-	EndpointID    int              `json:"endpoint_id"`
-	CreatedAt     string           `json:"created_at"`
-	UpdatedAt     string           `json:"updated_at,omitempty"`
-	Env           []LocalStackEnvVar `json:"env,omitempty"`
+	ID         int                `json:"id"`
+	Name       string             `json:"name"`
+	Type       string             `json:"type"`
+	Status     string             `json:"status"`
+	EndpointID int                `json:"endpoint_id"`
+	CreatedAt  string             `json:"created_at"`
+	UpdatedAt  string             `json:"updated_at,omitempty"`
+	Env        []LocalStackEnvVar `json:"env,omitempty"`
 }
 
 // RawLocalStack is the raw API response structure for a local stack

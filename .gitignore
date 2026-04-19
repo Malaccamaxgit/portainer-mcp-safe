@@ -1,3 +1,34 @@
-dist
-.dev
-.tmp
+dist/
+.dev/
+.tmp/
+coverage.out
+
+# Local generated wrapper artifacts
+docker/generated/
+_site/
+.jekyll-cache/
+
+# Logs and temp files
+logs/
+*.log
+*.pid
+*.pid.lock
+tmp/
+temp/
+
+# Local environment and secrets
+.env
+.env.*
+
+# IDE and AI editor local settings
+.vscode/
+.idea/
+.cursor/
+.claude/
+*.swp
+*.swo
+*~
+
+# OS cruft
+.DS_Store
+Thumbs.db

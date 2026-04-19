@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/portainer/portainer-mcp/pkg/portainer/models"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -6,11 +6,11 @@ import (
 	"io"
 	"strings"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/internal/k8sutil"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/toolgen"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/portainer/portainer-mcp/internal/k8sutil"
-	"github.com/portainer/portainer-mcp/pkg/portainer/models"
-	"github.com/portainer/portainer-mcp/pkg/toolgen"
 )
 
 func (s *PortainerMCPServer) AddKubernetesProxyFeatures() {
@@ -34,6 +34,11 @@ func (s *PortainerMCPServer) HandleKubernetesProxyStripped() server.ToolHandlerF
 		}
 		if !strings.HasPrefix(kubernetesAPIPath, "/") {
 			return mcp.NewToolResultError("kubernetesAPIPath must start with a leading slash"), nil
+		}
+
+		decision := s.safetyPolicy().CheckKubernetesProxy("GET", kubernetesAPIPath)
+		if decision != nil && !decision.Allowed {
+			return s.newSafetyErrorResult(decision.Message, decision.Note), nil
 		}
 
 		queryParams, err := parser.GetArrayOfObjects("queryParams", false)
@@ -72,7 +77,12 @@ func (s *PortainerMCPServer) HandleKubernetesProxyStripped() server.ToolHandlerF
 			return mcp.NewToolResultErrorFromErr("failed to process Kubernetes API response", err), nil
 		}
 
-		return mcp.NewToolResultText(string(responseBody)), nil
+		responseBody, note, err := s.safetyPolicy().SanitizeKubernetesJSON(responseBody)
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("failed to sanitize Kubernetes API response in safe mode", err), nil
+		}
+
+		return s.newTextResult(string(responseBody), string(responseBody), note), nil
 	}
 }
 
@@ -103,6 +113,11 @@ func (s *PortainerMCPServer) HandleKubernetesProxy() server.ToolHandlerFunc {
 		}
 		if !strings.HasPrefix(kubernetesAPIPath, "/") {
 			return mcp.NewToolResultError("kubernetesAPIPath must start with a leading slash"), nil
+		}
+
+		decision := s.safetyPolicy().CheckKubernetesProxy(method, kubernetesAPIPath)
+		if decision != nil && !decision.Allowed {
+			return s.newSafetyErrorResult(decision.Message, decision.Note), nil
 		}
 
 		queryParams, err := parser.GetArrayOfObjects("queryParams", false)
@@ -150,6 +165,11 @@ func (s *PortainerMCPServer) HandleKubernetesProxy() server.ToolHandlerFunc {
 			return mcp.NewToolResultErrorFromErr("failed to read Kubernetes API response", err), nil
 		}
 
-		return mcp.NewToolResultText(string(responseBody)), nil
+		responseBody, note, err := s.safetyPolicy().SanitizeKubernetesJSON(responseBody)
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("failed to sanitize Kubernetes API response in safe mode", err), nil
+		}
+
+		return s.newTextResult(string(responseBody), string(responseBody), note), nil
 	}
 }

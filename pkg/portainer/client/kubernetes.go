@@ -3,8 +3,8 @@ package client
 import (
 	"net/http"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models"
 	"github.com/portainer/client-api-go/v2/client"
-	"github.com/portainer/portainer-mcp/pkg/portainer/models"
 )
 
 // ProxyKubernetesRequest proxies a Kubernetes API request to a specific Portainer environment.

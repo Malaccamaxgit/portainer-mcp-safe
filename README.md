@@ -1,6 +1,4 @@
-# Portainer MCP
-[![Go Report Card](https://goreportcard.com/badge/github.com/portainer/portainer-mcp)](https://goreportcard.com/report/github.com/portainer/portainer-mcp)
-![coverage](https://raw.githubusercontent.com/portainer/portainer-mcp/badges/.badges/main/coverage.svg)
+# Portainer MCP Safe
 
 Ever wished you could just ask Portainer what's going on?
 
@@ -10,7 +8,14 @@ Now you can! Portainer MCP connects your AI assistant directly to your Portainer
 
 ## Overview
 
-Portainer MCP is a work in progress implementation of the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) for Portainer environments. This project aims to provide a standardized way to connect Portainer's container management capabilities with AI models and other services.
+Portainer MCP Safe is an altered-source fork of Portainer MCP by Portainer.io.
+Original upstream source: <https://github.com/portainer/portainer-mcp>
+Fork repository target: <https://github.com/Malaccamaxgit/portainer-mcp-safe>
+
+This fork keeps the upstream Portainer MCP tool surface and implementation model,
+then adds AI-safety controls for stack output redaction and proxy restrictions.
+
+Portainer MCP is a work in progress implementation of the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) for Portainer environments. The upstream project aims to provide a standardized way to connect Portainer's container management capabilities with AI models and other services.
 
 MCP (Model Context Protocol) is an open protocol that standardizes how applications provide context to LLMs (Large Language Models). Similar to how USB-C provides a standardized way to connect devices to peripherals, MCP provides a standardized way to connect AI models to different data sources and tools.
 
@@ -25,45 +30,120 @@ See the [Supported Capabilities](#supported-capabilities) sections for more deta
 
 It is currently designed to work with a Portainer administrator API token.
 
+## Fork Status
+
+This repository is the safe fork used for AI-driven Portainer access. It keeps
+the upstream Portainer MCP tool surface, but adds:
+
+- safe-mode redaction for secret-like stack environment values and compose content
+- Docker proxy allowlisting by default
+- Kubernetes secret-path blocking and secret-like JSON field redaction by default
+
+Repository layout:
+
+- Go fork source lives at the repo root
+- Docker MCP Toolkit packaging lives in `docker/`
+
+The upstream license is retained in `LICENSE`, and fork attribution is captured
+in `NOTICE`.
+
+This fork is intentionally marked as altered source to respect the upstream
+license terms:
+
+- it does not claim to be the original Portainer MCP project
+- it retains the upstream `LICENSE`
+- it names the upstream project and source URL prominently
+- it documents fork-specific behavior separately from upstream behavior
+
+## GitHub Pages
+
+A lightweight GitHub Pages site is prepared from `docs/` and is intended to
+publish at:
+
+<https://malaccamaxgit.github.io/portainer-mcp-safe/>
+
+## Upstream Sync Strategy
+
+This fork uses a rebase-on-tag workflow instead of a long-running patch pile.
+
+1. Add the upstream remote once:
+   `git remote add upstream https://github.com/portainer/portainer-mcp.git`
+2. Fetch upstream tags:
+   `git fetch upstream --tags`
+3. Create a temporary sync branch from the next upstream release tag:
+   `git checkout -b sync/vX.Y.Z upstream/vX.Y.Z`
+4. Rebase the fork branch onto that tag and resolve conflicts in this order:
+   `internal/tooldef/tools.yaml`, `internal/mcp/*`, `internal/safety/*`, `cmd/portainer-mcp/mcp.go`
+5. Re-run the fork unit tests and regenerate the wrapper metadata before publishing.
+
+The authoritative tool definitions for this repo are:
+
+- `internal/tooldef/tools.yaml` for the forked binary
+- the embedded `tools:` block in `docker/portainer-mcp-gateway.yaml` for Docker MCP Toolkit
+
+After changing `internal/tooldef/tools.yaml`, run:
+
+`make regen-gateway-tools`
+
+If `make` is not available in your shell, run:
+
+`go run ./cmd/regen-gateway-tools`
+
+The regen tool also supports two read-only modes that are useful in CI and
+during reviews:
+
+- `go run ./cmd/regen-gateway-tools --check` exits non-zero if
+  `docker/portainer-mcp-gateway.yaml` would be modified by a regeneration.
+- `go run ./cmd/regen-gateway-tools --check --diff` does the same and prints a
+  line-level diff of the drift to stderr so you can see exactly what would
+  change without writing anything.
+
+The `tools:` block in `docker/portainer-mcp-gateway.yaml` is generated and is
+prefixed with an `# AUTO-GENERATED` marker. Do not hand-edit it: change
+`internal/tooldef/tools.yaml` and rerun the regen tool.
+
+Any file written under `docker/generated/` is a local regeneration scratch artifact
+used to help refresh the gateway YAML. It should stay ignored and should not be
+treated as a committed source of truth.
+
+If an upstream release substantially rewrites proxy or stack handlers, prefer a
+fresh re-application of the safety layer over carrying forward a conflict-heavy
+rebase mechanically.
+
 ## Installation
 
-You can download pre-built binaries for Linux (amd64, arm64) and macOS (arm64) from the [**Latest Release Page**](https://github.com/portainer/portainer-mcp/releases/latest). Find the appropriate archive for your operating system and architecture under the "Assets" section.
+This repo is currently set up to be built locally or packaged into your own
+registry/catalog flow. It does not assume an official public release channel for
+the fork.
 
-**Download the archive:**
-You can usually download this directly from the release page. Alternatively, you can use `curl`. Here's an example for macOS (ARM64) version `v0.2.0`:
-
-```bash
-# Example for macOS (ARM64) - adjust version and architecture as needed
-curl -Lo portainer-mcp-v0.2.0-darwin-arm64.tar.gz https://github.com/portainer/portainer-mcp/releases/download/v0.2.0/portainer-mcp-v0.2.0-darwin-arm64.tar.gz
-```
-
-(Linux AMD64 binaries are also available on the release page.)
-
-**(Optional but recommended) Verify the checksum:**
-First, download the corresponding `.md5` checksum file from the release page.
-Example for macOS (ARM64) `v0.2.0`:
+Build the binary locally:
 
 ```bash
-# Download the checksum file (adjust version/arch)
-curl -Lo portainer-mcp-v0.2.0-darwin-arm64.tar.gz.md5 https://github.com/portainer/portainer-mcp/releases/download/v0.2.0/portainer-mcp-v0.2.0-darwin-arm64.tar.gz.md5
-# Now verify (output should match the content of the .md5 file)
-if [ "$(md5 -q portainer-mcp-v0.2.0-darwin-arm64.tar.gz)" = "$(cat portainer-mcp-v0.2.0-darwin-arm64.tar.gz.md5)" ]; then echo "OK"; else echo "FAILED"; fi
+go build -o dist/portainer-mcp ./cmd/portainer-mcp
 ```
 
-(For Linux, you can use `md5sum -c <checksum_file_name>.md5`)
-If the verification command outputs "OK", the file is intact.
-
-**Extract the archive:**
+Build the containerized unit-test image and run the tests:
 
 ```bash
-# Adjust the filename based on the downloaded version/OS/architecture
-tar -xzf portainer-mcp-v0.2.0-darwin-arm64.tar.gz
+docker build -f docker/Dockerfile --target test -t portainer-mcp-safe-test .
+docker run --rm portainer-mcp-safe-test
 ```
 
-This will extract the `portainer-mcp` executable.
+The `test` stage's default CMD runs `go test ./cmd/... ./internal/... ./pkg/...`,
+which includes the gateway metadata sync test. Override the CMD on `docker run`
+to scope to a narrower target.
 
-**Move the executable:**
-Move the executable to a location in your `$PATH` (e.g., `/usr/local/bin`) or note its location for the configuration step below.
+Build the lean Docker Toolkit runtime image from the unified repo root:
+
+```bash
+docker build -f docker/Dockerfile -t portainer-mcp-safe:0.7.0-safe.1 .
+```
+
+The `test` target intentionally runs unit checks only. Integration tests stay
+outside the image build because they require a Docker-capable test runner rather
+than a nested Docker setup inside the build stage.
+
+Docker MCP Toolkit-specific usage lives in `docker/USAGE.txt`.
 
 # Usage
 

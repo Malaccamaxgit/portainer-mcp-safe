@@ -379,7 +379,10 @@ tools:
       idempotentHint: true
       openWorldHint: false
   - name: getStackFile
-    description: Get the compose file for a specific stack ID
+    description: >-
+      Get the compose file for a specific stack ID. In safe_mode, secret-like
+      environment values and secrets blocks are redacted unless
+      allow_unredacted_stack_content is enabled.
     parameters:
       - name: id
         description: The ID of the stack to get the compose file for
@@ -456,7 +459,9 @@ tools:
     description: >-
       List all local (non-edge) stacks deployed on Portainer environments.
       Returns stack ID, name, status, type, environment ID, creation date,
-      and environment variables for each stack.
+      and environment variables for each stack. In safe_mode, secret-like
+      environment variable values are redacted unless
+      allow_unredacted_stack_content is enabled.
     annotations:
       title: List Local Stacks
       readOnlyHint: true
@@ -466,7 +471,8 @@ tools:
   - name: getLocalStackFile
     description: >-
       Get the docker-compose file content for a specific local stack by its ID.
-      Returns the raw compose file as text.
+      In safe_mode, secret-like environment values and secrets blocks are
+      redacted unless allow_unredacted_stack_content is enabled.
     parameters:
       - name: id
         description: The ID of the local stack to get the compose file for
@@ -759,7 +765,9 @@ tools:
   - name: dockerProxy
     description: Proxy Docker requests to a specific Portainer environment.
       This tool can be used with any Docker API operation as documented in the Docker Engine API specification (https://docs.docker.com/reference/api/engine/version/v1.48/).
-      In read-only mode, only GET requests are allowed.
+      In read-only mode, only GET requests are allowed. In safe_mode, requests
+      are additionally restricted to an allowlist unless
+      allow_sensitive_proxy_paths is enabled.
     parameters:
       - name: environmentId
         description: The ID of the environment to proxy Docker requests to
@@ -824,7 +832,9 @@ tools:
   - name: kubernetesProxy
     description: Proxy Kubernetes requests to a specific Portainer environment.
       This tool can be used with any Kubernetes API operation as documented in the Kubernetes API specification (https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/).
-      In read-only mode, only GET requests are allowed.
+      In read-only mode, only GET requests are allowed. In safe_mode, secret
+      resource paths are denied unless allow_sensitive_proxy_paths is enabled,
+      and secret-like fields in JSON responses are redacted.
     parameters:
       - name: environmentId
         description: The ID of the environment to proxy Kubernetes requests to
@@ -892,6 +902,9 @@ tools:
       This tool can be used with any GET Kubernetes API operation as documented
       in the Kubernetes API specification (https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/).
       For other methods (POST, PUT, DELETE, HEAD), use the 'kubernetesProxy' tool.
+      In safe_mode, secret resource paths are denied unless
+      allow_sensitive_proxy_paths is enabled, and secret-like fields in JSON
+      responses are redacted.
     parameters:
       - name: environmentId
         description: The ID of the environment to proxy Kubernetes GET requests to

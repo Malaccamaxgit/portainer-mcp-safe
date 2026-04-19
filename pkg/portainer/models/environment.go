@@ -1,8 +1,8 @@
 package models
 
 import (
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/utils"
 	apimodels "github.com/portainer/client-api-go/v2/pkg/models"
-	"github.com/portainer/portainer-mcp/pkg/portainer/utils"
 )
 
 type Environment struct {

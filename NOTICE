@@ -1,0 +1,13 @@
+Portainer MCP Safe is an altered-source fork of Portainer MCP by Portainer.io.
+
+Original upstream project and source:
+https://github.com/portainer/portainer-mcp
+
+Fork repository target:
+https://github.com/Malaccamaxgit/portainer-mcp-safe
+
+This distribution retains the upstream license text unchanged in LICENSE.
+
+Fork-specific changes in this distribution include safe-mode behavior for stack
+output redaction, proxy restrictions, and Docker MCP Toolkit packaging under
+the docker/ subdirectory.

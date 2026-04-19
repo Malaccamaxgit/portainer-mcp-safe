@@ -5,8 +5,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/internal/mcp"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/go-openapi/runtime"
@@ -16,7 +18,6 @@ import (
 	"github.com/portainer/client-api-go/v2/pkg/client/auth"
 	"github.com/portainer/client-api-go/v2/pkg/client/users"
 	"github.com/portainer/client-api-go/v2/pkg/models"
-	"github.com/portainer/portainer-mcp/internal/mcp"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -25,9 +26,28 @@ const (
 	defaultPortainerImage = "portainer/portainer-ee:" + mcp.SupportedPortainerVersion
 	defaultAPIPortTCP     = "9443/tcp"
 	adminPassword         = "$2y$05$CiHrhW6R6whDVlu7Wdgl0eccb3rg1NWl/mMiO93vQiRIF1SHNFRsS" // Bcrypt hash of "adminpassword123"
-	// Timeout for the container to start and be ready to use
-	startupTimeout = time.Second * 5
+	// Default ceiling for both the log-probe and the HTTPS-status-probe wait
+	// strategies. Portainer EE 2.31.x typically needs 8-15s on first boot to
+	// answer /api/system/status with 200 OK; the previous 5s ceiling was too
+	// tight on cold runs and produced flaky "context deadline exceeded"
+	// failures in every single integration test. Override at runtime with the
+	// PORTAINER_TEST_STARTUP_TIMEOUT environment variable (any value
+	// time.ParseDuration accepts, e.g. "90s", "2m").
+	defaultStartupTimeout         = 60 * time.Second
+	startupTimeoutEnvironmentName = "PORTAINER_TEST_STARTUP_TIMEOUT"
 )
+
+func startupTimeout() time.Duration {
+	value := os.Getenv(startupTimeoutEnvironmentName)
+	if value == "" {
+		return defaultStartupTimeout
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil || parsed <= 0 {
+		return defaultStartupTimeout
+	}
+	return parsed
+}
 
 // PortainerContainer represents a Portainer container for testing
 type PortainerContainer struct {
@@ -78,10 +98,8 @@ func NewPortainerContainer(ctx context.Context, opts ...PortainerContainerOption
 		Image:        cfg.Image,
 		ExposedPorts: []string{defaultAPIPortTCP},
 		WaitingFor: wait.ForAll(
-			// Wait for the HTTPS server to start
 			wait.ForLog("starting HTTPS server").
-				WithStartupTimeout(startupTimeout),
-			// Then wait for the API to be responsive
+				WithStartupTimeout(startupTimeout()),
 			wait.ForHTTP("/api/system/status").
 				WithTLS(true, nil).
 				WithAllowInsecure(true).
@@ -91,7 +109,7 @@ func NewPortainerContainer(ctx context.Context, opts ...PortainerContainerOption
 						return status == http.StatusOK
 					},
 				).
-				WithStartupTimeout(startupTimeout),
+				WithStartupTimeout(startupTimeout()),
 		),
 		Cmd: []string{
 			"--admin-password",

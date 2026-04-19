@@ -1,0 +1,5 @@
+.git
+.github
+docker/generated/
+agent-tools/
+terminals/

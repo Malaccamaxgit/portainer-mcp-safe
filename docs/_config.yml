@@ -1,0 +1,5 @@
+title: Portainer MCP Safe
+description: Altered-source Portainer MCP fork with safe-mode redaction and Docker MCP Toolkit packaging
+theme: minima
+markdown: kramdown
+repository: Malaccamaxgit/portainer-mcp-safe

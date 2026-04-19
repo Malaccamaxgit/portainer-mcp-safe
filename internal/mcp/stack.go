@@ -2,12 +2,11 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/toolgen"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/portainer/portainer-mcp/pkg/toolgen"
 )
 
 func (s *PortainerMCPServer) AddStackFeatures() {
@@ -27,12 +26,12 @@ func (s *PortainerMCPServer) HandleGetStacks() server.ToolHandlerFunc {
 			return mcp.NewToolResultErrorFromErr("failed to get stacks", err), nil
 		}
 
-		data, err := json.Marshal(stacks)
+		result, err := s.newJSONResult(stacks, nil)
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("failed to marshal stacks", err), nil
 		}
 
-		return mcp.NewToolResultText(string(data)), nil
+		return result, nil
 	}
 }
 
@@ -50,7 +49,12 @@ func (s *PortainerMCPServer) HandleGetStackFile() server.ToolHandlerFunc {
 			return mcp.NewToolResultErrorFromErr("failed to get stack file", err), nil
 		}
 
-		return mcp.NewToolResultText(stackFile), nil
+		stackFile, note, err := s.safetyPolicy().SanitizeComposeContent(stackFile)
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("failed to sanitize stack file in safe mode", err), nil
+		}
+
+		return s.newTextResult(stackFile, stackFile, note), nil
 	}
 }
 

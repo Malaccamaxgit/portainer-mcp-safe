@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/internal/mcp"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/tests/integration/helpers"
 	mcpmodels "github.com/mark3labs/mcp-go/mcp"
-	"github.com/portainer/portainer-mcp/internal/mcp"
-	"github.com/portainer/portainer-mcp/pkg/portainer/models"
-	"github.com/portainer/portainer-mcp/tests/integration/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

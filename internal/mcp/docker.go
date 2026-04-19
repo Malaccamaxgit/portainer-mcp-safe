@@ -6,10 +6,10 @@ import (
 	"io"
 	"strings"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/toolgen"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/portainer/portainer-mcp/pkg/portainer/models"
-	"github.com/portainer/portainer-mcp/pkg/toolgen"
 )
 
 func (s *PortainerMCPServer) AddDockerProxyFeatures() {
@@ -43,6 +43,11 @@ func (s *PortainerMCPServer) HandleDockerProxy() server.ToolHandlerFunc {
 		}
 		if !strings.HasPrefix(dockerAPIPath, "/") {
 			return mcp.NewToolResultError("dockerAPIPath must start with a leading slash"), nil
+		}
+
+		decision := s.safetyPolicy().CheckDockerProxy(method, dockerAPIPath)
+		if decision != nil && !decision.Allowed {
+			return s.newSafetyErrorResult(decision.Message, decision.Note), nil
 		}
 
 		queryParams, err := parser.GetArrayOfObjects("queryParams", false)
@@ -90,6 +95,6 @@ func (s *PortainerMCPServer) HandleDockerProxy() server.ToolHandlerFunc {
 			return mcp.NewToolResultErrorFromErr("failed to read Docker API response", err), nil
 		}
 
-		return mcp.NewToolResultText(string(responseBody)), nil
+		return s.newTextResult(string(responseBody), string(responseBody), nil), nil
 	}
 }

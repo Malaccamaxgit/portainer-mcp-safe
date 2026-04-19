@@ -5,11 +5,12 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/Malaccamaxgit/portainer-mcp-safe/internal/safety"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/client"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models"
+	"github.com/Malaccamaxgit/portainer-mcp-safe/pkg/toolgen"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/portainer/portainer-mcp/pkg/portainer/client"
-	"github.com/portainer/portainer-mcp/pkg/portainer/models"
-	"github.com/portainer/portainer-mcp/pkg/toolgen"
 )
 
 const (
@@ -17,7 +18,19 @@ const (
 	MinimumToolsVersion = "1.0"
 	// SupportedPortainerVersion is the version of Portainer that is supported by this tool
 	SupportedPortainerVersion = "2.31.2"
+	// DefaultServerVersion is the fallback value advertised in the MCP
+	// initialize handshake's serverInfo.version field when the binary's
+	// build-time version has not been injected (e.g. plain `go test` runs).
+	// The CLI in cmd/portainer-mcp assigns Version from main.Version so the
+	// ldflag-supplied build version flows through to MCP clients.
+	DefaultServerVersion = "dev"
 )
+
+// Version is the value reported as serverInfo.version in the MCP
+// initialize handshake. The CLI overrides this with the binary's
+// build-time version before constructing the server, keeping a single
+// source of truth for what gets advertised to MCP clients.
+var Version = DefaultServerVersion
 
 // PortainerClient defines the interface for the wrapper client used by the MCP server
 type PortainerClient interface {
@@ -92,6 +105,7 @@ type PortainerMCPServer struct {
 	cli      PortainerClient
 	tools    map[string]mcp.Tool
 	readOnly bool
+	policy   *safety.Policy
 }
 
 // ServerOption is a function that configures the server
@@ -102,6 +116,7 @@ type serverOptions struct {
 	client              PortainerClient
 	readOnly            bool
 	disableVersionCheck bool
+	safetyConfig        safety.Config
 }
 
 // WithClient sets a custom client for the server.
@@ -128,6 +143,36 @@ func WithDisableVersionCheck(disable bool) ServerOption {
 	}
 }
 
+func WithSafeMode(enabled bool) ServerOption {
+	return func(opts *serverOptions) {
+		opts.safetyConfig.SafeMode = enabled
+	}
+}
+
+func WithAllowUnredactedStackContent(enabled bool) ServerOption {
+	return func(opts *serverOptions) {
+		opts.safetyConfig.AllowUnredactedStackContent = enabled
+	}
+}
+
+func WithAllowSensitiveProxyPaths(enabled bool) ServerOption {
+	return func(opts *serverOptions) {
+		opts.safetyConfig.AllowSensitiveProxyPaths = enabled
+	}
+}
+
+func WithProxyAllowlist(entries []string) ServerOption {
+	return func(opts *serverOptions) {
+		opts.safetyConfig.ProxyAllowlist = entries
+	}
+}
+
+func WithExtraRedactionPatterns(patterns []string) ServerOption {
+	return func(opts *serverOptions) {
+		opts.safetyConfig.ExtraRedactionPatterns = patterns
+	}
+}
+
 // NewPortainerMCPServer creates a new Portainer MCP server.
 //
 // This server provides an implementation of the MCP protocol for Portainer,
@@ -148,7 +193,11 @@ func WithDisableVersionCheck(disable bool) ServerOption {
 //   - Failed to communicate with the Portainer server
 //   - Incompatible Portainer server version
 func NewPortainerMCPServer(serverURL, token, toolsPath string, options ...ServerOption) (*PortainerMCPServer, error) {
-	opts := &serverOptions{}
+	opts := &serverOptions{
+		safetyConfig: safety.Config{
+			SafeMode: true,
+		},
+	}
 
 	for _, option := range options {
 		option(opts)
@@ -177,16 +226,22 @@ func NewPortainerMCPServer(serverURL, token, toolsPath string, options ...Server
 		}
 	}
 
+	policy, err := safety.NewPolicy(opts.safetyConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize safety policy: %w", err)
+	}
+
 	return &PortainerMCPServer{
 		srv: server.NewMCPServer(
-			"Portainer MCP Server",
-			"0.5.1",
+			"Portainer MCP Safe Server",
+			Version,
 			server.WithToolCapabilities(true),
 			server.WithLogging(),
 		),
 		cli:      portainerClient,
 		tools:    tools,
 		readOnly: opts.readOnly,
+		policy:   policy,
 	}, nil
 }
 
@@ -203,4 +258,18 @@ func (s *PortainerMCPServer) addToolIfExists(toolName string, handler server.Too
 	} else {
 		log.Printf("Tool %s not found, will not be registered for MCP usage", toolName)
 	}
+}
+
+func (s *PortainerMCPServer) safetyPolicy() *safety.Policy {
+	if s.policy != nil {
+		return s.policy
+	}
+
+	policy, err := safety.NewPolicy(safety.Config{})
+	if err != nil {
+		return nil
+	}
+
+	s.policy = policy
+	return s.policy
 }
