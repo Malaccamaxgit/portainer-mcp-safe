@@ -1,19 +1,35 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Portainer MCP Development Guide
 
 ## Build, Test & Run Commands
+
 **Prerequisites**: Go 1.24+, golangci-lint, Docker (for integration tests), npx (for inspector)
 
+### Build Commands
 - Build: `make build`
+- Build for specific platform: `make PLATFORM=<platform> ARCH=<arch> build`
+- Clean build artifacts: `make clean`
+
+### Test Commands
 - Unit tests: `make test` (excludes integration tests)
 - Run single test: `go test -v ./path/to/package -run TestName`
 - Test with coverage: `make test-coverage` (generates `coverage.out`)
 - Integration tests: `make test-integration` (requires Docker; spins up Portainer containers)
 - Run all tests: `make test-all` (unit + integration)
+
+### Docker Builds
+- Build test image: `docker build -f docker/Dockerfile --target test -t portainer-mcp-safe-test .`
+- Run tests in container: `docker run --rm portainer-mcp-safe-test`
+- Build runtime image: `docker build -f docker/Dockerfile -t portainer-mcp-safe:0.7.0-safe.1 .`
+
+### Development Tools
 - Lint: `make lint` (runs `golangci-lint run ./...`)
 - Format code: `gofmt -s -w .`
 - Run inspector: `make inspector`
-- Build for specific platform: `make PLATFORM=<platform> ARCH=<arch> build`
-- Clean build artifacts: `make clean`
+- Regenerate gateway tools: `make regen-gateway-tools`
 
 ### CLI Flags
 ```
@@ -24,14 +40,103 @@ dist/portainer-mcp \
   -read-only                  # Optional: restrict to read-only tools
   -business-edition           # Optional: enable Business Edition-only tools
   -disable-version-check      # Optional: skip Portainer version validation
-  -safe-mode=true                     # Enable safe-mode redaction and proxy guards (default: true)
+  -safe-mode=true             # Enable safe-mode redaction and proxy guards (default: true)
   -allow-unredacted-stack-content=false  # Allow unredacted stack env values in safe mode
-  -allow-sensitive-proxy-paths=false  # Allow sensitive Docker/K8s proxy paths in safe mode
-  -proxy-allowlist ""                 # Extra METHOD:/path-prefix entries, comma-separated
-  -extra-redaction-patterns ""        # Extra redaction regex patterns, comma-separated
+  -allow-sensitive-proxy-paths=false     # Allow sensitive Docker/K8s proxy paths in safe mode
+  -proxy-allowlist ""         # Extra METHOD:/path-prefix entries, comma-separated
+  -extra-redaction-patterns "" # Extra redaction regex patterns, comma-separated
 ```
 
+## High-Level Architecture
+
+### Application Flow
+```
+cmd/portainer-mcp/mcp.go (entry point)
+    ↓
+internal/mcp/server.go (MCPServer initialization)
+    ↓
+pkg/portainer/client/ (API client wrapper)
+    ↓
+internal/mcp/*.go (feature handlers)
+    ↓
+Portainer REST API / Docker API / Kubernetes API
+```
+
+### Package Responsibilities
+
+| Package | Purpose |
+|---------|---------|
+| `cmd/portainer-mcp` | Main entry point, CLI flags, feature registration |
+| `cmd/regen-gateway-tools` | Syncs tool definitions to Docker gateway YAML |
+| `internal/mcp` | MCP server core + feature handlers (docker.go, kubernetes.go, local_stack.go, etc.) |
+| `internal/safety` | Redaction patterns, Docker/K8s proxy allowlisting, secret blocking |
+| `internal/tooldef` | Embedded tools.yaml loading |
+| `internal/k8sutil` | Kubernetes metadata stripping |
+| `pkg/portainer/client` | Portainer API wrapper (SDK + raw HTTP paths) |
+| `pkg/portainer/models` | Local simplified models + conversions |
+| `pkg/toolgen` | YAML parsing, tool schema generation |
+
+### Two API Implementation Paths
+
+The `PortainerClient` holds two internal clients because the SDK doesn't cover the full Portainer API:
+
+#### Path 1: SDK Client (preferred)
+- Uses `github.com/portainer/client-api-go/v2`
+- Covers: environments, tags, teams, users, groups, access groups, edge stacks, settings, Docker/K8s proxy
+- Pattern: `c.cli.SomeMethod()` → convert to local models → return
+- Example files: `client/environment.go`, `client/tag.go`, `client/stack.go`
+- **Unit tests**: mock `PortainerAPIClient` interface via `MockPortainerAPI`
+
+#### Path 2: Raw HTTP Client (when SDK lacks methods)
+- Uses `c.rawCli.apiRequest(method, path, body)`
+- Used for: local (non-edge) Docker Compose stacks (`/api/stacks/*`)
+- Authenticates with `X-API-Key` header
+- Define request/response structs locally
+- Example: `client/local_stack.go`
+- **Unit tests**: use `httptest.NewServer`
+
+### Safety Policy Architecture
+
+Safe mode (enabled by default) provides:
+
+1. **Stack Environment Redaction** (`policy.go:SanitizeLocalStacks`):
+   - Redacts values matching patterns: password, secret, token, key, credential, etc.
+   - Applies to `ListLocalStacks` and `GetLocalStackFile` output
+
+2. **Compose Content Redaction** (`policy.go:SanitizeComposeContent`):
+   - Parses YAML, redacts `environment` and `secrets` sections
+   - Returns redacted YAML + note about what was redacted
+
+3. **Docker Proxy Allowlisting** (`policy.go:CheckDockerProxy`):
+   - Default allowlist: GET /version, /info, /containers/json, /images/json, /networks, /volumes
+   - Blocks all other paths unless explicitly allowed
+
+4. **Kubernetes Secret Blocking** (`policy.go:CheckKubernetesProxy`):
+   - Blocks any path containing `/secrets` or ending with `/secret`
+   - JSON response redaction via `SanitizeKubernetesJSON`
+
+### MCP Server Feature Domains
+
+The server registers these feature groups (see `cmd/portainer-mcp/mcp.go`):
+
+| Feature | Files | Edition |
+|---------|-------|---------|
+| Environments | `mcp/environment.go` | CE |
+| Tags | `mcp/tag.go` | CE |
+| Teams | `mcp/team.go` | CE |
+| Users | `mcp/user.go` | CE |
+| Settings | `mcp/settings.go` | CE |
+| Local Stacks | `mcp/local_stack.go` | CE |
+| Docker Proxy | `mcp/docker.go` | CE |
+| Kubernetes Proxy | `mcp/kubernetes.go` | CE |
+| Edge Stacks | `mcp/stack.go` | EE |
+| Environment Groups | `mcp/group.go` | EE |
+| Access Groups | `mcp/access_group.go` | EE |
+
+**Tool counts**: 39 total → 21 in CE mode → 10 in read-only + CE mode
+
 ## Code Style Guidelines
+
 - Use standard Go naming conventions: PascalCase for exported, camelCase for private
 - Follow table-driven test pattern with descriptive test cases
 - Error handling: return errors with context via `fmt.Errorf("failed to X: %w", err)`
@@ -39,145 +144,47 @@ dist/portainer-mcp \
 - Function comments: document exported functions with Parameters/Returns sections
 - Use functional options pattern for configurable clients
 - Lint with `make lint` before committing; fix all warnings
-- Package structure: cmd/ for entry points, internal/ for implementation, pkg/ for reusable components
-- Models belong in pkg/portainer/models, client implementations in pkg/portainer/client
-- Tool YAML parsing and parameter extraction in pkg/toolgen
-- Kubernetes resource annotation stripping in internal/k8sutil
-
-## Design Documentation
-- Design decisions are documented in individual files in `docs/design/` directory
-- Follow the naming convention: `YYYYMM-N-short-description.md` where:
-  - `YYYYMM` is the year and month
-  - `N` is a sequence number for that month
-  - Example: `202504-1-embedded-tools-yaml.md`
-- Use the standard template structure provided in `docs/design_summary.md`
-- Add new decisions to the table in `docs/design_summary.md`
-- Review existing decisions before making significant architectural changes
-
-## Client and Model Guidelines
-
-### Two API Implementation Paths
-
-The `PortainerClient` in `pkg/portainer/client/client.go` holds two internal clients (`cli` for the SDK, `rawCli` for raw HTTP) because the SDK doesn't cover the full Portainer API. **When adding new operations, choose the right path:**
-
-#### Path 1: SDK Client (preferred when available)
-- Uses `github.com/portainer/client-api-go/v2`
-- Covers: environments, tags, teams, users, groups, access groups, edge stacks, settings, Docker/K8s proxy
-- Authentication is handled internally by the SDK (token passed at initialization)
-- Pattern: call `c.cli.SomeMethod()` → convert SDK models to local models → return
-- Example files: `client/environment.go`, `client/tag.go`, `client/stack.go`
-- **Unit tests**: mock the `PortainerAPIClient` interface via `MockPortainerAPI` in `mocks_test.go`
-
-#### Path 2: Raw HTTP Client (when SDK has no method)
-- Uses direct HTTP via `c.rawCli.apiRequest(method, path, body)`
-- Currently used for: local (non-edge) Docker Compose stacks (`/api/stacks/*`)
-- Authenticates with `X-API-Key` header (set in `apiRequest` helper)
-- You must manually: build the URL path, marshal request bodies, check `resp.StatusCode`, decode JSON responses
-- Define request/response structs locally in the same file (e.g., `createLocalStackRequest`)
-- Example file: `client/local_stack.go`
-- **Unit tests**: use `httptest.NewServer` to stand up a fake HTTP server (no mock interface)
-
-#### Decision Guide for New Features
-
-| Check | Use |
-|-------|-----|
-| SDK has a method for the endpoint | SDK path (`c.cli`) |
-| SDK has no method, Portainer REST API exists | Raw HTTP path (`c.rawCli.apiRequest`) |
-| Proxying Docker/K8s APIs through Portainer | SDK path (uses `c.cli.ProxyDockerRequest` / `ProxyKubernetesRequest`) |
-
-**Gotcha**: Both paths share the same `PortainerClient` wrapper and expose methods through the same `PortainerClient` interface in `internal/mcp/server.go`. Callers (MCP handlers) don't know or care which path is used — the wrapper abstracts it.
-
-### Model Structure
-1. **Raw Models** (`portainer/client-api-go/v2/pkg/models`)
-   - Direct mapping to Portainer API data structures
-   - May contain fields not relevant to MCP
-   - Prefix variables with `raw` (e.g., `rawSettings`, `rawEndpoint`)
-
-2. **Local Models** (`pkg/portainer/models`)
-   - Simplified structures tailored for the MCP application
-   - Contain only relevant fields with convenient types
-   - Define conversion functions to transform from Raw Models
-
-3. **Raw HTTP Models** (for raw HTTP path only)
-   - `RawLocalStack` in `pkg/portainer/models/stack.go` — maps directly to Portainer JSON (PascalCase field tags)
-   - Converted to `LocalStack` (local model) with enum translation (int → string for type/status) and timestamp formatting
 
 ### Import Conventions
 ```go
 import (
-    "github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models" // Default: models (Local MCP Models)
-    apimodels "github.com/portainer/client-api-go/v2/pkg/models" // Alias: apimodels (Raw Client-API-Go Models)
+    "github.com/Malaccamaxgit/portainer-mcp-safe/pkg/portainer/models" // Local MCP models
+    apimodels "github.com/portainer/client-api-go/v2/pkg/models"      // Raw SDK models
 )
 ```
 
-### Testing by API Path
-- **SDK path unit tests**: mock `PortainerAPIClient` interface, stub SDK return values, assert local model output and mock expectations (`mockAPI.AssertExpectations(t)`)
-- **Raw HTTP path unit tests**: spin up `httptest.NewServer`, verify request path/method/headers (`X-API-Key`, `Content-Type`) in the handler func, return canned JSON, assert parsed results
-- **Integration tests**: both paths tested end-to-end — call MCP handler, compare with ground-truth from direct API calls
+## Testing Conventions
 
-## MCP Server Architecture
+### Unit Tests by API Path
+- **SDK path**: mock `PortainerAPIClient` interface, assert mock expectations
+- **Raw HTTP path**: spin up `httptest.NewServer`, verify request path/method/headers
 
-### Server Configuration
-- Server is initialized in `cmd/portainer-mcp/mcp.go`
-- Uses functional options pattern via `WithClient()`, `WithReadOnly()`, `WithBusinessEdition()`, `WithDisableVersionCheck()`, `WithSafeMode()`, `WithAllowUnredactedStackContent()`, `WithAllowSensitiveProxyPaths()`, `WithProxyAllowlist()`, and `WithExtraRedactionPatterns()`
-- Connects to Portainer API using token-based authentication
-- Validates compatibility with specific Portainer version
-- Loads tool definitions from YAML file
+### Integration Tests
+- Uses testcontainers-go for Portainer instances
+- `tests/integration/helpers/test_env.go` provides utilities
+- Compare MCP handler results with direct API calls (ground-truth)
+- Use `env.RawClient` with specific getters (`GetEdgeStackByName`, `GetUser`, etc.)
+- Reference: `tests/integration/team_test.go`, `user_test.go`, `environment_test.go`
 
-### Tool Definitions
-- Tools are defined in `internal/tooldef/tools.yaml`
-- File is embedded in binary at build time
-- External file can override embedded definitions
-- Version checking ensures compatibility
-- Read-only mode restricts modification capabilities
-- `requiresBusinessEdition: true` marks tools that are only registered when `-business-edition` is enabled
+## Design Documentation
 
-### Feature Domains
-The server registers these feature groups (see `cmd/portainer-mcp/mcp.go`):
-Environment, EnvironmentGroup, Tag, Stack, LocalStack, Settings, User, Team, AccessGroup, DockerProxy, KubernetesProxy
+Design decisions are in `docs/design/` with naming convention `YYYYMM-N-short-description.md`:
 
-In Community Edition mode, the server skips the Business Edition-only tools in
-EnvironmentGroup, AccessGroup, Edge Stack, and environment RBAC flows. That
-leaves 21 registered tools by default, or 10 when combined with read-only mode.
+| ID | Decision |
+|----|----------|
+| 202503-1 | External tools.yaml file |
+| 202503-2 | Tool-based resource access (not MCP resources) |
+| 202503-3 | Specific update tools vs single generic tool |
+| 202504-1 | Embed tools.yaml in binary |
+| 202504-2 | Strict tools.yaml versioning |
+| 202504-3 | Pin to specific Portainer version |
+| 202504-4 | Read-only security mode |
+| 202602-1 | Local stack support via raw HTTP |
 
-### Handler Pattern
-- Each tool has a corresponding handler in `internal/mcp/`
-- Handlers follow ToolHandlerFunc signature
-- Standard error handling with wrapped errors
-- Parameter validation with required flag checks
-- Response serialization to JSON
-
-## Integration Testing Framework
-
-**Integration tests are critical** — CI runs them on every push and PR. Always run `make test-integration` (or `make test-all`) before submitting changes that affect handlers, client methods, or models.
-
-### Test Environment Setup
-- Uses Docker containers for Portainer instances via testcontainers-go
-- `tests/integration/helpers/test_env.go` provides test environment utilities
-- Creates isolated test environment for each test
-- Configures both Raw Client and MCP Server for testing
-- Automatically cleans up resources after tests
-- Requires Docker daemon running locally
-
-### Testing Conventions
-- Tests verify both success and error conditions
-- Use table-driven tests with descriptive case names
-- Compare MCP handler results with direct API calls (ground-truth comparison)
-- Validate correct error handling and parameter validation
-- CI pipeline: `make build` → `make test-coverage` → `make test-integration`
-- Reference integration tests for structure/imports: `tests/integration/team_test.go`, `user_test.go`, `environment_test.go`
-- Use `env.RawClient` with specific getters (`GetEdgeStackByName`, `GetUser`, etc.) for ground-truth — don't list-and-iterate
-- If a handler signature changes, update its unit test file too
+See `docs/design_summary.md` for the full index.
 
 ## Version Compatibility
 
-### Portainer Version Support
-- Each release supports a specific Portainer version (defined in `server.go`)
-- Version check at startup prevents compatibility issues
-- Fail-fast approach with clear error messaging
-
-### Tools File Versioning
-- Strict versioning for tools.yaml file
-- Version validation at startup
-- Clear upgrade path for breaking changes
-
+- Supported Portainer version: **2.31.2** (defined in `server.go`)
+- Tools file version: **v1.3** (defined in `tools.yaml`)
+- Version check at startup; use `-disable-version-check` to bypass

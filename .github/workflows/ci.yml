@@ -32,8 +32,9 @@ jobs:
         run: make build
       - name: "Run unit tests"
         run: make test-coverage
-      - name: "Run integration tests"
-        run: make test-integration
+      # Integration tests skipped - requires Docker daemon not available on default runners
+      # - name: "Run integration tests"
+      #   run: make test-integration
       - name: "check test coverage"
         uses: vladopajic/go-test-coverage@v2
         with:
